@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # Baza danych dla Twojego systemu rezerwacji
+  db-restauracja:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: rezerwacje_db
+    ports:
+      - "5432:5432"
+
+  # Narzędzie graficzne do podglądu bazy (dostępne w przeglądarce)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_panel
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@test.pl
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - db-restauracja
