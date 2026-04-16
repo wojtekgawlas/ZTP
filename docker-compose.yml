@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Baza danych dla Twojego systemu rezerwacji
+  # Baza danych dla systemu rezerwacji
   db-restauracja:
     image: postgres:15
     container_name: postgres_db
@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
 
-  # Narzędzie graficzne do podglądu bazy (dostępne w przeglądarce)
+  # Narzędzie graficzne do podglądu bazy
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin_panel
