@@ -18,4 +18,4 @@ Do uruchomienia projektu wymagany jest zainstalowany **Docker Desktop**.
 1. Sklonuj repozytorium:
  ```bash
  git clone https://github.com
- cd nazwa-projektu
+ cd ZTP
