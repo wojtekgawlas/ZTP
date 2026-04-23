@@ -5,7 +5,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db-restauracja:5432/restauracja_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:P@$$w0rd@db-restauracja:5432/rezerwacje_db")
+
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
