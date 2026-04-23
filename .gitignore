@@ -1,1 +1,24 @@
+# Python - pliki kompilacji i cache
+__pycache__/
+*.py[cod]
+*$py.class
 
+# Środowisko wirtualne
+venv/
+env/
+.env
+
+# Docker
+.dockerignore
+
+# Bazy danych
+*.db
+*.sqlite3
+
+# IDE 
+.vscode/
+.idea/
+
+# Systemowe
+.DS_Store
+Thumbs.db
