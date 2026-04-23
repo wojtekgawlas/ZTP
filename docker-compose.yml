@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Baza danych dla systemu rezerwacji
   db-restauracja:
     image: postgres:15
     container_name: postgres_db
@@ -13,7 +12,17 @@ services:
     ports:
       - "5432:5432"
 
-  # Narzędzie graficzne do podglądu bazy
+  backend:
+    build: ./backend
+    container_name: python_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db-restauracja
+    environment:
+      DATABASE_URL: postgresql://admin:password123@db-restauracja:5432/rezerwacje_db
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin_panel
