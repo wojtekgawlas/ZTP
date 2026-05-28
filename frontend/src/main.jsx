@@ -19,9 +19,9 @@ const initialTables = [
 ];
 
 const statusText = {
-  free: 'Свободен',
-  reserved: 'Забронирован',
-  busy: 'Занят'
+  free: 'Wolny',
+  reserved: 'Zarezerwowany',
+  busy: 'Zajęty'
 };
 
 const statusIcon = {
@@ -41,14 +41,16 @@ function TableButton({ table, selected, onSelect }) {
       disabled={disabled}
       whileHover={!disabled ? { scale: 1.06, y: -2 } : undefined}
       whileTap={!disabled ? { scale: 0.96 } : undefined}
-      aria-label={`Столик ${table.id}, ${statusText[table.status]}, ${table.seats} места`}
+      aria-label={`Stolik ${table.id}, ${statusText[table.status]}, liczba miejsc: ${table.seats}`}
     >
       <span className="table__number">{table.id}</span>
+
       <span className="table__chairs table__chairs--top">
         {Array.from({ length: Math.min(table.seats, 4) }).map((_, index) => (
           <Armchair key={`top-${index}`} size={13} />
         ))}
       </span>
+
       <span className="table__seats">
         <Users size={14} /> {table.seats}
       </span>
@@ -71,39 +73,40 @@ function App() {
       <section className="hero">
         <div>
           <p className="eyebrow">Cafe Lumière</p>
-          <h1>Выберите столик в кафе</h1>
+          <h1>Wybierz stolik w kawiarni</h1>
           <p className="hero__text">
-            Нажмите на свободный столик на плане зала, чтобы выбрать место для бронирования.
+            Kliknij wolny stolik na planie sali, aby wybrać miejsce do rezerwacji.
           </p>
         </div>
+
         <div className="hero__card">
           <Coffee size={34} />
-          <span>Сегодня доступно</span>
-          <strong>{availableCount} столиков</strong>
+          <span>Dzisiaj dostępne</span>
+          <strong>{availableCount} stolików</strong>
         </div>
       </section>
 
       <section className="layout">
         <aside className="panel">
-          <h2>Параметры</h2>
+          <h2>Parametry</h2>
 
           <label className="control">
-            Количество гостей
+            Liczba gości
             <select value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))}>
-              <option value="1">1 гость</option>
-              <option value="2">2 гостя</option>
-              <option value="3">3 гостя</option>
-              <option value="4">4 гостя</option>
-              <option value="5">5 гостей</option>
-              <option value="6">6 гостей</option>
-              <option value="8">8 гостей</option>
+              <option value="1">1 gość</option>
+              <option value="2">2 gości</option>
+              <option value="3">3 gości</option>
+              <option value="4">4 gości</option>
+              <option value="5">5 gości</option>
+              <option value="6">6 gości</option>
+              <option value="8">8 gości</option>
             </select>
           </label>
 
           <div className="legend">
-            <div><span className="dot dot--free" /> Свободен</div>
-            <div><span className="dot dot--reserved" /> Забронирован</div>
-            <div><span className="dot dot--busy" /> Занят</div>
+            <div><span className="dot dot--free" /> Wolny</div>
+            <div><span className="dot dot--reserved" /> Zarezerwowany</div>
+            <div><span className="dot dot--busy" /> Zajęty</div>
           </div>
 
           <AnimatePresence mode="wait">
@@ -115,14 +118,18 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
               >
-                <p>Вы выбрали</p>
-                <h3>Столик №{selectedTable.id}</h3>
+                <p>Wybrano</p>
+                <h3>Stolik nr {selectedTable.id}</h3>
+
                 <div className="selected-card__row">
                   <span>{statusIcon[selectedTable.status]} {statusText[selectedTable.status]}</span>
-                  <span><Users size={17} /> {selectedTable.seats} мест</span>
+                  <span><Users size={17} /> {selectedTable.seats} miejsc</span>
                 </div>
-                <button className="primary-button">Забронировать</button>
-                <button className="ghost-button" onClick={() => setSelectedTable(null)}>Снять выбор</button>
+
+                <button className="primary-button">Zarezerwuj</button>
+                <button className="ghost-button" onClick={() => setSelectedTable(null)}>
+                  Usuń wybór
+                </button>
               </motion.div>
             ) : (
               <motion.div
@@ -133,7 +140,7 @@ function App() {
                 exit={{ opacity: 0 }}
               >
                 <Coffee />
-                <p>Пока столик не выбран</p>
+                <p>Nie wybrano jeszcze stolika</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -142,16 +149,16 @@ function App() {
         <section className="floor-card">
           <div className="floor-header">
             <div>
-              <h2>План зала</h2>
-              <p>Окна, барная зона и столики с разной вместимостью</p>
+              <h2>Plan sali</h2>
+              <p>Okna, strefa barowa oraz stoliki o różnej liczbie miejsc</p>
             </div>
-            <span className="badge">Live selection</span>
+            <span className="badge">Wybór na żywo</span>
           </div>
 
           <div className="floor">
-            <div className="windows">Окна</div>
-            <div className="bar">Бар</div>
-            <div className="entrance">Вход</div>
+            <div className="windows">Okna</div>
+            <div className="bar">Bar</div>
+            <div className="entrance">Wejście</div>
             <div className="plant plant--one" />
             <div className="plant plant--two" />
             <div className="path path--one" />
