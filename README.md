@@ -17,5 +17,5 @@ Do uruchomienia projektu wymagany jest zainstalowany **Docker Desktop**.
 
 1. Sklonuj repozytorium:
  ```bash
- git clone [https://github.com](https://github.com/wojtekgawlas/ZTP.git)
+ git clone https://github.com/wojtekgawlas/ZTP.git
  cd ZTP
