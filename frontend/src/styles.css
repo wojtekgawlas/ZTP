@@ -626,4 +626,32 @@ select:focus {
   h1 {
     font-size: 40px;
   }
+
+.table-item, .table-card, [class*="table"] {
+  box-sizing: border-box !important;
+  border: 2px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+
+.table-item:hover, .table-card:hover, [class*="table"]:hover {
+  transform: scale(1.05) !important; 
+  border-color: #ff4081 !important;
+}
+
+
+.table-item, .table-card, [class*="table"], [class*="stolik"] {
+  transform-origin: center center !important; 
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+  will-change: transform;
+}
+
+
+.table-item:hover, .table-card:hover, [class*="table"]:hover, [class*="stolik"]:hover {
+  left: auto;
+  top: auto;
+  margin: 0 !important;
+}
+
 }
