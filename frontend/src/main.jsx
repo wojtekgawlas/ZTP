@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Coffee, Users, CheckCircle2, XCircle, Armchair, Sparkles } from 'lucide-react';
+import { Coffee, Users, CheckCircle2, XCircle, Armchair, Sparkles, Calendar, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles.css';
 
@@ -30,7 +30,7 @@ const initialTables = [
   {
     id: 3,
     seats: 2,
-    status: 'reserved',
+    status: 'free',
     x: 61,
     y: 18,
     type: 'round',
@@ -41,7 +41,7 @@ const initialTables = [
   {
     id: 4,
     seats: 6,
-    status: 'busy',
+    status: 'free',
     x: 82,
     y: 21,
     type: 'wide',
@@ -63,7 +63,7 @@ const initialTables = [
   {
     id: 6,
     seats: 2,
-    status: 'busy',
+    status: 'free',
     x: 44,
     y: 50,
     type: 'round',
@@ -107,7 +107,7 @@ const initialTables = [
   {
     id: 10,
     seats: 4,
-    status: 'reserved',
+    status: 'free',
     x: 56,
     y: 79,
     type: 'square',
@@ -175,92 +175,113 @@ function TableButton({ table, selected, onSelect }) {
 function App() {
   const [currentTab, setCurrentTab] = useState("main");
   const [tables, setTables] = useState(initialTables);
-  const fetchLiveStatuses = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/rezerwacje/');
-      if (response.ok) {
-        const rezerwacjeZbazy = await response.json();
-        
-        const updatedTables = initialTables.map(table => {
-          const jestZarezerwowany = rezerwacjeZBazy.some(
-            rez => parseInt(rez.stolik_nr) === parseInt(table.id)
-          );
-          
-          return {
-            ...table,
-            status: jestZarezerwowany ? 'busy' : 'free'
-          };
-        });
-        
-        setTables(updatedTables);
-      }
-    } catch (error) {
-      console.error("Błąd pobierania statusów live:", error);
+  
+  // Nowy state dla selekcji dnia i godziny rezerwacji na żywo
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("10:00");
+  const [liveAvailability, setLiveAvailability] = useState(null);
+  
+  // Pobranie dostępności stolików na żywo
+const fetchLiveAvailability = async (date, time) => {
+  if (!date) return;
+  try {
+    const res = await fetch(`http://localhost:5000/dostepnosc-stolikow/?data=${date}&godzina=${time}`);
+    if (!res.ok) {
+      console.error("Błąd odpowiedzi od gateway:", res.status);
+      return;
     }
-  };
 
+    const data = await res.json();
+    setLiveAvailability(data);
+
+    const updatedTables = initialTables.map(table => {
+      const stolikInfo = (data && Array.isArray(data.stoliki)) ? data.stoliki.find(s => s.id === table.id) : null;
+      return {
+        ...table,
+        status: stolikInfo && !stolikInfo.dostepny ? 'busy' : 'free'
+      };
+    });
+
+    setTables(updatedTables);
+  } catch (error) {
+    console.error("Błąd pobierania dostępności:", error);
+  }
+};
+
+
+  
+  // Ustalanie dzisiejszej daty i pierwszego dostępnego dnia (dzisiaj lub jutro)
   useEffect(() => {
-    fetchLiveStatuses();
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
+    fetchLiveAvailability(today, "10:00");
   }, []);
+  
+  // Aktualizacja dostępności gdy zmieni się data lub godzina
+  useEffect(() => {
+    if (selectedDate) {
+      fetchLiveAvailability(selectedDate, selectedTime);
+    }
+  }, [selectedDate, selectedTime]);
 
   const [selectedTable, setSelectedTable] = useState(null);
   const [guestCount, setGuestCount] = useState(2);
   const [clientName, setClientName] = useState("");
-  const [resDate, setResDate] = useState("");   
-  const [resHour, setResHour] = useState("10");
-  const [resMinute, setResMinute] = useState(":00"); 
-    const handleReservation = async () => {
-    if (!clientName.trim()) {
-      alert("Proszę wpisać imię i nazwisko!");
+  
+const handleReservation = async () => {
+  if (!clientName.trim()) {
+    alert("Proszę wpisać imię i nazwisko!");
+    return;
+  }
+  if (!selectedDate) {
+    alert("Proszę wybrać dzień rezerwacji w sekcji powyżej!");
+    return;
+  }
+  if (!selectedTable) {
+    alert("Proszę najpierw wybrać stolik z planu sali!");
+    return;
+  }
+
+const payload = {
+  klient: clientName,
+  stolik_nr: Number(selectedTable.id),
+  data_godzina: `${selectedDate} ${selectedTime}`
+};
+
+
+
+  console.log("Wysyłam payload (czysty):", payload);
+
+  try {
+  const response = await fetch("http://localhost:5000/rezerwacje/", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
+
+
+
+    const text = await response.text().catch(() => "");
+    let json;
+    try { json = JSON.parse(text); } catch(e) { json = null; }
+
+    if (!response.ok) {
+      console.error("RESPONSE STATUS:", response.status);
+      console.error("RESPONSE TEXT:", text);
+      if (json) console.error("RESPONSE JSON:", json);
+      alert("Błąd rezerwacji: sprawdź konsolę (422 = walidacja).");
       return;
     }
-    if (!resDate) {
-      alert("Proszę wybrać dzień rezerwacji!");
-      return;
-    }
-    if (!selectedTable) {
-      alert("Proszę najpierw wybrać stolik z planu sali!");
-      return;
-    }
-    const fullDateTime = `${resDate}T${resHour}${resMinute}`;
 
-    if (parseInt(resHour) === 21 && resMinute !== ":00") {
-      alert("Ostatnia możliwa rezerwacja to godzina 21:00!");
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:8000/rezerwacje/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          klient: clientName,
-          stolik_nr: parseInt(selectedTable.id),
-          data_godzina: fullDateTime
-        }),
-      });
-
-      if (response.ok) {
-        alert(`Stolik nr ${selectedTable.id} został zarezerwowany dla: ${clientName} na termin ${fullDateTime}!`);
-        setClientName("");
-        setResDate("");
-        setResHour("10");
-        setResMinute(":00");
-        await fetchLiveStatuses();
-      } else {
-        const errorData = await response.json();
-        alert(`Błąd: ${errorData.detail || 'Nie udało się dokonać rezerwacji.'}`);
-      }
-    } catch (error) {
-      console.error("Błąd połączenia z API:", error);
-      alert("Nie można połączyć się z serwerem backendu.");
-    }
-  };
-
-
-
+    alert("Rezerwacja utworzona pomyślnie!");
+    setClientName("");
+    setSelectedTable(null);
+    fetchLiveAvailability(selectedDate, selectedTime);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    alert("Błąd połączenia z serwerem.");
+  }
+};
 
 
 
@@ -274,14 +295,19 @@ function App() {
 
   return (
     <main className="app">
-       <nav style={{
+      <nav style={{
         display: 'flex',
         justifyContent: 'center',
-        gap: '30px',
-        padding: '15px 20px',
-        background: 'rgba(15, 15, 20, 0.85)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        gap: "40px",
+        padding: "18px 28px",
+        background:  "rgba(255, 255, 255, 0.08)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderRadius: "18px",
+        border: "1px solid rgba(255, 255, 255, 0.15)",
+        margin: "20px auto",
+        width: "fit-content",
+        boxShadow: "0 8px 25px rgba(0,0,0,0.25)",
         position: 'sticky',
         top: 0,
         zIndex: 9999
@@ -290,266 +316,420 @@ function App() {
         <button onClick={() => setCurrentTab("reservation")} style={{ background: 'none', border: 'none', color: currentTab === 'reservation' ? '#c084fc' : '#9ca3af', fontSize: '1.05rem', fontWeight: '600', cursor: 'pointer', transition: '0.2s' }}>Rezerwacja Stolika</button>
         <button onClick={() => setCurrentTab("contact")} style={{ background: 'none', border: 'none', color: currentTab === 'contact' ? '#c084fc' : '#9ca3af', fontSize: '1.05rem', fontWeight: '600', cursor: 'pointer', transition: '0.2s' }}>Kontakt</button>
       </nav>
-      <section className="hero">
-        <div>
-          <p className="eyebrow">Cafe Lumière</p>
-          <h1>Wybierz stolik w kawiarni</h1>
-          <p className="hero__text">
-            Kliknij wolny stolik na planie sali, aby wybrać miejsce do rezerwacji.
-          </p>
-        </div>
 
-        <div className="hero__card">
-          <Coffee size={34} />
-          <span>Dostępne dzisiaj</span>
-          <strong>{availableCount} stolików</strong>
-        </div>
-      </section>
+{currentTab === "main" && (
+  <section
+    style={{
+      minHeight: "calc(100vh - 120px)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "40px 20px"
+    }}
+  >
+    <div
+      style={{
+        maxWidth: "900px",
+        textAlign: "center",
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center", 
+        // GLASSMORPHISM PANEL
+        background: "rgba(255, 255, 255, 0.08)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderRadius: "24px",
+        border: "1px solid rgba(255, 255, 255, 0.15)",
+        padding: "50px 40px",
+        boxShadow: "0 10px 35px rgba(0,0,0,0.35)"
+      }}
+    >
+      <h1 
+  style={{
+    fontSize: "4rem",
+    fontWeight: "800",
+    color: "#b388ff",
+    marginBottom: "20px",
+    display: "block",
+    width: "100%",
+    textAlign: "center",
 
-      <section className="layout">
-        <aside className="panel">
-          <h2>Parametry</h2>
+  }}
+>
+CAFE LUMIÈRE
+</h1>
 
-          <label className="control">
-            Liczba gości
-            <select value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))}>
-              <option value="1">1 gość</option>
-              <option value="2">2 gości</option>
-              <option value="3">3 gości</option>
-              <option value="4">4 gości</option>
-              <option value="5">5 gości</option>
-              <option value="6">6 gości</option>
-              <option value="8">8 gości</option>
-            </select>
-          </label>
-
-          <div className="legend">
-            <div><span className="dot dot--free" /> Wolny</div>
-            <div><span className="dot dot--reserved" /> Zarezerwowany</div>
-            <div><span className="dot dot--busy" /> Zajęty</div>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {selectedTable ? (
-              <motion.div
-                key={selectedTable.id}
-                className="selected-card"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-              >
-          <p>Wybrano</p>
-          <h3>Stolik nr {selectedTable.id}</h3>
-          <div className="selected-card__row">
-            <span>{statusIcon[selectedTable.status]} {statusText[selectedTable.status]}</span>
-            <span><Users size={17} /> {selectedTable.seats} miejsc</span>
-          </div>
-
-          <div className="control" style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Imię i nazwisko klienta:
-            </label>
-            <input 
-              type="text" 
-              placeholder="np. Jan Kowalski" 
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '8px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box',
-                background: '#fff',
-                color: '#333'
-              }}
-            />
-          </div>
+<h2
+  style={{
+    fontSize: "2rem",
+    fontWeight: "600",
+    color: "#b388ff",
+    marginBottom: "30px",
+    textShadow: "0 4px 18px rgba(0,0,0,0.45)"
+  }}
+>
+  Witamy w Naszej Restauracji
+</h2>
 
 
-          <div className="control" style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Data i godzina rezerwacji:
-            </label>
-            
-            <input 
-              type="date" 
-              value={resDate}
-              min={new Date().toISOString().split('T')[0]} // Blokada dat wstecznych
-              max={new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]} // Maksymalnie miesiąc w przód
-              onChange={(e) => setResDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '8px',
-                border: '1px solid #ccc',
-                background: '#fff',
-                color: '#333',
-                marginBottom: '10px',
-                boxSizing: 'border-box'
-              }}
-            />
-            
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <select
-                value={resHour}
-                onChange={(e) => setResHour(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  color: '#333',
-                  fontWeight: 'bold'
-                }}
-              >
-                <option value="10">10:00</option>
-                <option value="11">11:00</option>
-                <option value="12">12:00</option>
-                <option value="13">13:00</option>
-                <option value="14">14:00</option>
-                <option value="15">15:00</option>
-                <option value="16">16:00</option>
-                <option value="17">17:00</option>
-                <option value="18">18:00</option>
-                <option value="19">19:00</option>
-                <option value="20">20:00</option>
-                <option value="21">21:00</option>
-              </select>
+      <p
+  style={{
+    fontSize: "1.25rem",
+    lineHeight: "1.7",
+    color: "#b388ff",
+    marginBottom: "40px",
+    textShadow: "0 3px 12px rgba(0,0,0,0.4)"
+  }}
+>
 
-              <select
-                value={resMinute}
-                onChange={(e) => setResMinute(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  color: '#333',
-                  fontWeight: 'bold'
-                }}
-              >
-                <option value=":00">:00</option>
-                <option value=":15">:15</option>
-                <option value=":30">:30</option>
-                <option value=":45">:45</option>
-              </select>
-            </div>
-          </div>
+        Doświadcz wyjątkowej atmosfery i wyśmienitych dań w naszej eleganckiej kawiarni.
+        Rezerwuj stolik teraz i ciesz się niezapomnianą kolacją z rodziną lub przyjaciółmi.
+      </p>
 
-          <button onClick={handleReservation} className="primary-button" style={{ marginBottom: '10px' }}>
-            Zarezerwuj
-          </button>
+      <button
+        onClick={() => setCurrentTab("reservation")}
+        style={{
+          padding: "14px 32px",
+          fontSize: "1.2rem",
+          fontWeight: "600",
+          color: "white",
+          background: "linear-gradient(135deg, #7b2ff7, #f107a3)",
+          border: "none",
+          borderRadius: "14px",
+          cursor: "pointer",
+          boxShadow: "0 8px 25px rgba(0,0,0,0.35)",
+          transition: "0.25s"
+        }}
+      >
+        Zarezerwuj Teraz
+      </button>
+    </div>
+  </section>
+)}
 
-                <button className="ghost-button" onClick={() => setSelectedTable(null) & setClientName("") & setResDate("") & setResHour("10") & setResMinute(":00")}>Wyczyść wybór</button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="empty"
-                className="empty-card"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <Coffee />
-                <p>Nie wybrano jeszcze stolika</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </aside>
 
-        <section className="floor-card">
-          <div className="floor-header">
+      {currentTab === "reservation" && (
+        <>
+          <section className="hero" style={{ marginBottom: '0' }}>
             <div>
-              <h2>Plan sali</h2>
-              <p>Okna, strefa barowa oraz stoliki o różnych kolorach i liczbie miejsc</p>
+              <p className="eyebrow">Cafe Lumière</p>
+              <h1>Wybierz stolik w kawiarni</h1>
+              <p className="hero__text">
+                Kliknij wolny stolik na planie sali, aby wybrać miejsce do rezerwacji.
+              </p>
             </div>
-            <span className="badge">Wybór na żywo</span>
-          </div>
 
-          <div className="floor">
-            <div className="windows">Okna</div>
-            <div className="bar">Bar</div>
-            <div className="entrance">Wejście</div>
-            <div className="plant plant--one" />
-            <div className="plant plant--two" />
-            <div className="path path--one" />
-            <div className="path path--two" />
+            <div className="hero__card">
+              <Coffee size={34} />
+              <span>Dostępne</span>
+              <strong>{availableCount} stolików</strong>
+            </div>
+          </section>
 
-            {visibleTables.map((table) => (
-              <TableButton
-                key={table.id}
-                table={table}
-                selected={selectedTable?.id === table.id}
-                onSelect={setSelectedTable}
-              />
-            ))}
-          </div>
-        </section>
-      </section>
+          <section className="layout">
+            <aside className="panel">
+              <h2>Parametry</h2>
+
+              {/* Sekcja: Wybór dnia i godziny na żywo */}
+              <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(192, 132, 252, 0.1)', borderRadius: '8px', border: '1px solid rgba(192, 132, 252, 0.3)' }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={16} /> Widok Rezerwacji na Żywo
+                </h3>
+                
+                <div className="control" style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: '600' }}>
+                    Dzień (do 7 dni do przodu):
+                  </label>
+                  <input 
+                    type="date" 
+                    value={selectedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    max={new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #c084fc',
+                      background: '#1a1a2e',
+                      color: '#e0e0e0',
+                      fontSize: '0.9rem',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                
+                <div className="control">
+                  <label style={{ display: 'flex', marginBottom: '6px', fontSize: '0.9rem', fontWeight: '600', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={14} /> Godzina:
+                  </label>
+                  <select
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #c084fc',
+                      background: '#1a1a2e',
+                      color: '#e0e0e0',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {(() => {
+                      const now = new Date();
+                      const currentHour = now.getHours();
+                      const currentMinute = now.getMinutes();
+                      const isToday = selectedDate === new Date().toISOString().split('T')[0];
+                      const allTimes = [];
+                      
+                      for (let h = 10; h <= 21; h++) {
+                        for (let m = 0; m < 60; m += 15) {
+                          if (h === 21 && m > 0) break;
+                          const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                          if (isToday && (h < currentHour || (h === currentHour && m <= currentMinute))) {
+                            continue;
+                          }
+                          allTimes.push(timeStr);
+                        }
+                      }
+                      
+                      return allTimes.map(time => <option key={time} value={time}>{time}</option>);
+                    })()}
+                  </select>
+                </div>
+                
+                {liveAvailability && (
+                  <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(52, 211, 153, 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: '#34d399', textAlign: 'center' }}>
+                    ⏰ Rezerwacja od {liveAvailability.godzina} do {liveAvailability.koniec_rezerwacji}
+                  </div>
+                )}
+              </div>
+
+              <label className="control">
+                Liczba gości
+                <select value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))}>
+                  <option value="1">1 gość</option>
+                  <option value="2">2 gości</option>
+                  <option value="3">3 gości</option>
+                  <option value="4">4 gości</option>
+                  <option value="5">5 gości</option>
+                  <option value="6">6 gości</option>
+                  <option value="8">8 gości</option>
+                </select>
+              </label>
+
+              <div className="legend">
+                <div><span className="dot dot--free" /> Wolny</div>
+                <div><span className="dot dot--reserved" /> Zarezerwowany</div>
+                <div><span className="dot dot--busy" /> Zajęty</div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {selectedTable ? (
+                  <motion.div
+                    key={selectedTable.id}
+                    className="selected-card"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                  >
+                    <p>Wybrano</p>
+                    <h3>Stolik nr {selectedTable.id}</h3>
+                    <div className="selected-card__row">
+                      <span>{statusIcon[selectedTable.status]} {statusText[selectedTable.status]}</span>
+                      <span><Users size={17} /> {selectedTable.seats} miejsc</span>
+                    </div>
+
+                    <div className="control" style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                        Imię i nazwisko klienta:
+                      </label>
+                      <input 
+                        type="text" 
+                        placeholder="np. Jan Kowalski" 
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: '1px solid #ccc',
+                          boxSizing: 'border-box',
+                          background: '#fff',
+                          color: '#333'
+                        }}
+                      />
+                    </div>
+
+                    <div className="control" style={{ marginBottom: '15px', padding: '12px', background: 'rgba(192, 132, 252, 0.05)', borderRadius: '8px', border: '1px solid rgba(192, 132, 252, 0.2)' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        Rezerwacja:
+                      </label>
+                      <div style={{ fontSize: '0.9rem', color: '#9ca3af' }}>
+                        <div>📅 <strong>{selectedDate || 'Wybierz datę powyżej'}</strong></div>
+                        {selectedTime && (
+                        <div>⏰ <strong>
+                        {selectedTime} – {(() => {
+                        const [hours, minutes] = selectedTime.split(':');
+                        const end = new Date();
+                        end.setHours(parseInt(hours) + 2, parseInt(minutes), 0);
+                        return `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+                        })()}
+                        </strong></div>
+)}
+
+                        <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#34d399' }}>
+                          ✓ 2-godzinne okno rezerwacji
+                        </div>
+                      </div>
+                    </div>
+
+                    <button onClick={handleReservation} className="primary-button" style={{ marginBottom: '10px' }}>
+                      Zarezerwuj
+                    </button>
+
+                    <button className="ghost-button" onClick={() => { setSelectedTable(null); setClientName(""); }}>Wyczyść wybór</button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    className="empty-card"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <Coffee />
+                    <p>Nie wybrano jeszcze stolika</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </aside>
+
+            <section className="floor-card">
+              <div className="floor-header">
+                <div>
+                  <h2>Plan sali</h2>
+                  <p>Okna, strefa barowa oraz stoliki o różnych kolorach i liczbie miejsc</p>
+                </div>
+                <span className="badge">Wybór na żywo</span>
+              </div>
+
+              <div className="floor">
+                <div className="windows">Okna</div>
+                <div className="bar">Bar</div>
+                <div className="entrance">Wejście</div>
+                <div className="plant plant--one" />
+                <div className="plant plant--two" />
+                <div className="path path--one" />
+                <div className="path path--two" />
+
+                {visibleTables.map((table) => (
+                  <TableButton
+                    key={table.id}
+                    table={table}
+                    selected={selectedTable?.id === table.id}
+                    onSelect={setSelectedTable}
+                  />
+                ))}
+              </div>
+            </section>
+          </section>
+        </>
+      )}
+
+{currentTab === "contact" && (
+  <section
+    style={{
+      minHeight: "calc(100vh - 120px)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "40px 20px"
+    }}
+  >
+    <div
+      style={{
+        maxWidth: "1100px",
+        width: "100%",
+        margin: "0 auto",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "40px",
+        background: "rgba(255, 255, 255, 0.08)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderRadius: "24px",
+        border: "1px solid rgba(255, 255, 255, 0.15)",
+        padding: "50px 40px",
+        boxShadow: "0 10px 35px rgba(0,0,0,0.35)"
+      }}
+    >
+      {/* LEWA KOLUMNA */}
+      <div style={{ color: "#b388ff", fontSize: "1.2rem", lineHeight: "1.7" }}>
+        <h1
+          style={{
+            fontSize: "3rem",
+            fontWeight: "800",
+            color: "#b388ff",
+            marginBottom: "30px",
+            textAlign: "center"
+          }}
+        >
+          Kontakt
+        </h1>
+
+        <p><strong>Adres</strong><br/>Cafe Lumière<br/>ul. Słoneczna 15<br/>43-300 Bielsko-Biała</p>
+
+        <p style={{ marginTop: "25px" }}>
+          <strong>Telefon</strong><br/>
+          Rezerwacje: +48 123 456 789<br/>
+          Informacje: +48 123 456 790
+        </p>
+
+        <p style={{ marginTop: "25px" }}>
+          <strong>Email</strong><br/>
+          rezerwacje@cafelumiere.pl<br/>
+          info@cafelumiere.pl
+        </p>
+
+        <p style={{ marginTop: "25px" }}>
+          <strong>Godziny Otwarcia</strong><br/>
+          Pon–Pt: 10:00–22:00<br/>
+          Sobota: 11:00–23:00<br/>
+          Niedziela: 11:00–22:00
+        </p>
+      </div>
+
+      {/* PRAWA KOLUMNA */}
+      <div
+        style={{
+          borderRadius: "18px",
+          overflow: "hidden",
+          height: "100%",
+          minHeight: "350px"
+        }}
+      >
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2560.764!2d19.038!3d49.822!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x471420d4e5f8f0d1%3A0x123456789abcdef!2sBielsko-Biała!5e0!3m2!1spl!2spl!4v1710000000000"
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          allowFullScreen=""
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        ></iframe>
+      </div>
+    </div>
+  </section>
+)}
+
+
     </main>
-    
   );
-        {/* NAKŁADKA STRONY GŁÓWNEJ */}
-      {currentTab === "main" && (
-        <div style={{ position: 'fixed', top: '65px', left: 0, right: 0, bottom: 0, background: '#09090b', zIndex: 9998, padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', overflowY: 'auto' }}>
-          <h1 style={{ fontSize: '3.5rem', marginBottom: '20px', fontWeight: '800', background: 'linear-gradient(to right, #e879f9, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.05em' }}>
-            Witamy w Cafe Lumiere
-          </h1>
-          <p style={{ fontSize: '1.25rem', marginBottom: '40px', color: '#a1a1aa', maxWidth: '600px', lineHeight: '1.6' }}>
-            Zarezerwuj swój ulubiony stolik online w kilka sekund i ciesz się niepowtarzalną atmosferą naszego lokalu.
-          </p>
-          
-          <div style={{ background: 'rgba(24, 24, 27, 0.6)', backdropFilter: 'blur(8px)', padding: '35px', borderRadius: '20px', marginBottom: '40px', border: '1px solid rgba(255, 255, 255, 0.05)', maxWidth: '500px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-            <h2 style={{ color: '#c084fc', marginBottom: '15px', fontSize: '1.5rem', fontWeight: '700' }}>Godziny Otwarcia</h2>
-            <p style={{ fontSize: '1.6rem', margin: '5px 0', fontWeight: '700', color: '#f4f4f5' }}>Codziennie: 10:00 - 22:00</p>
-            <p style={{ fontSize: '0.9rem', color: '#71717a', marginTop: '20px', lineHeight: '1.4' }}>* Rezerwacji stolików można dokonać najpóźniej na godzinę przed zamknięciem restauracji (do 21:00).</p>
-          </div>
-
-          <button onClick={() => setCurrentTab("reservation")} style={{ padding: '16px 45px', fontSize: '1.2rem', background: 'linear-gradient(to right, #d946ef, #8b5cf6)', color: '#fff', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)', transition: '0.2s' }}>
-            Zarezerwuj stolik
-          </button>
-        </div>
-      )}
-
-      {/* NAKŁADKA STRONY KONTAKTU */}
-      {currentTab === "contact" && (
-        <div style={{ position: 'fixed', top: '65px', left: 0, right: 0, bottom: 0, background: '#09090b', zIndex: 9998, padding: '40px 20px', overflowY: 'auto' }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h1 style={{ textAlign: 'center', marginBottom: '40px', fontSize: '2.5rem', fontWeight: '800', color: '#f4f4f5' }}>Kontakt</h1>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '40px' }}>
-              <div style={{ background: 'rgba(24, 24, 27, 0.6)', padding: '25px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                <h3 style={{ color: '#c084fc', fontSize: '1.25rem', marginBottom: '10px', fontWeight: '700' }}>Adres lokalu</h3>
-                <p style={{ fontSize: '1.05rem', margin: '5px 0', color: '#d4d4d8' }}>Kampus Uniwersytetu Bielsko-Bialskiego (UBB)</p>
-                <p style={{ fontSize: '1.05rem', margin: '5px 0', color: '#9ca3af' }}>ul. Willowa 2, 43-309 Bielsko-Biała</p>
-              </div>
-              <div style={{ background: 'rgba(24, 24, 27, 0.6)', padding: '25px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                <h3 style={{ color: '#c084fc', fontSize: '1.25rem', marginBottom: '10px', fontWeight: '700' }}>Rezerwacje telefoniczne</h3>
-                <p style={{ fontSize: '1.05rem', margin: '5px 0', color: '#d4d4d8' }}>📞 Telefon: +48 33 827 92 00</p>
-                <p style={{ fontSize: '1.05rem', margin: '5px 0', color: '#9ca3af' }}>✉️ Email: kontakt@cafe-lumiere.pl</p>
-              </div>
-            </div>
-            
-            {/* MAPA GOOGLE UBB */}
-            <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', height: '400px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
-              <iframe 
-                title="Mapa UBB"
-                src="https://google.com" 
-                width="100%" 
-                height="100%" 
-                style={{ border: 0 }} 
-                allowFullScreen="" 
-                loading="lazy" 
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
 }
 
 createRoot(document.getElementById('root')).render(<App />);

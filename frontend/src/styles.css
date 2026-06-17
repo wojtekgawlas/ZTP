@@ -344,7 +344,8 @@ select:focus {
 
 .floor {
   position: relative;
-  min-height: 625px;
+  min-height: 800px;
+  width: 100%;
   overflow: hidden;
   border-radius: 32px;
   border: 10px solid rgba(255, 255, 255, 0.52);
@@ -460,10 +461,10 @@ select:focus {
   display: grid;
   place-items: center;
   gap: 2px;
-  width: 88px;
-  height: 88px;
-  padding: 8px;
-  border-radius: 28px;
+  width: 72px;
+  height: 72px;
+  padding: 6px;
+  border-radius: 24px;
   color: white;
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.95), transparent 32%),
@@ -626,32 +627,9 @@ select:focus {
   h1 {
     font-size: 40px;
   }
-
-.table-item, .table-card, [class*="table"] {
-  box-sizing: border-box !important;
-  border: 2px solid transparent;
-  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
-
-
-.table-item:hover, .table-card:hover, [class*="table"]:hover {
-  transform: scale(1.05) !important; 
-  border-color: #ff4081 !important;
-}
-
-
-.table-item, .table-card, [class*="table"], [class*="stolik"] {
-  transform-origin: center center !important; 
-  backface-visibility: hidden;
-  -webkit-font-smoothing: subpixel-antialiased;
-  will-change: transform;
-}
-
-
 .table-item:hover, .table-card:hover, [class*="table"]:hover, [class*="stolik"]:hover {
   left: auto;
   top: auto;
   margin: 0 !important;
-}
-
 }
