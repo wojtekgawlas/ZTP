@@ -2,9 +2,6 @@
 
 Projekt zaliczeniowy realizowany w architekturze mikroserwisowej z wykorzystaniem konteneryzacji.
 
-## Zespół i podział ról
-* **Backend:**  - FastAPI, PostgreSQL, Docker.
-
 ## Technologie
 * **Backend:** Python 3.11 + FastAPI
 * **Baza danych:** PostgreSQL 15
@@ -19,3 +16,8 @@ Do uruchomienia projektu wymagany jest zainstalowany **Docker Desktop**.
  ```bash
  git clone https://github.com/wojtekgawlas/ZTP.git
  cd ZTP
+```
+2. Uruchom kontenery:
+ ```bash
+ docker compose up
+```
