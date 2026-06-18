@@ -6,19 +6,22 @@ import sys
 def callback(ch, method, properties, body):
     try:
         dane = json.loads(body.decode())
+        
         print("\n" + "="*50)
         print("[MIKROSERWIS POWIADOMIEŃ] Odebrano zdarzenie z szyny RabbitMQ!")
-        print(f"-> ID Rezerwacji: {dane.get('id_rezerwacji')}")
         print(f"-> Klient: {dane.get('klient')}")
         print(f"-> Stolik nr: {dane.get('stolik_nr')}")
-        print(f"-> Data i godzina: {dane.get('data_godzina')}")
+        print(f"-> Termin: {dane.get('data_godzina')}")
         print("-"*50)
-        print(f"✉️ [SUKCES] Wysłano automatyczne potwierdzenie e-mail na adres klienta!")
+        
+        print(f"✉️ [EMAIL] Wysłano oficjalne potwierdzenie na adres: {dane.get('email')}")
+        print(f"📱 [SMS] Wysłano SMS konfiguracyjny na numer: {dane.get('telefon')}")
+        print("   Treść: 'Cafe Lumiere: Rezerwacja przyęta pomyślnie. Do zobaczenia!'")
         print("="*50 + "\n")
         
         ch.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as e:
-        print(f"[BŁĄD PRZETWARZANIA]: {e}")
+        print(f"[BŁĄD NOTIFIKACJI]: {e}")
 
 def main():
     print("[Notification Service] Uruchamianie... Oczekiwanie na gotowość RabbitMQ.")

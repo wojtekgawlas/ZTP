@@ -9,8 +9,8 @@ const initialTables = [
     id: 1,
     seats: 2,
     status: 'free',
-    x: 13,
-    y: 18,
+    x: 15,
+    y: 31,
     type: 'round',
     color1: '#00D1FF',
     color2: '#0077FF',
@@ -20,7 +20,7 @@ const initialTables = [
     id: 2,
     seats: 4,
     status: 'free',
-    x: 36,
+    x: 33,
     y: 16,
     type: 'square',
     color1: '#A855F7',
@@ -54,7 +54,7 @@ const initialTables = [
     seats: 4,
     status: 'free',
     x: 18,
-    y: 48,
+    y: 55,
     type: 'square',
     color1: '#34D399',
     color2: '#059669',
@@ -65,7 +65,7 @@ const initialTables = [
     seats: 2,
     status: 'free',
     x: 44,
-    y: 50,
+    y: 45,
     type: 'round',
     color1: '#F87171',
     color2: '#DC2626',
@@ -87,7 +87,7 @@ const initialTables = [
     seats: 8,
     status: 'free',
     x: 86,
-    y: 54,
+    y: 50,
     type: 'wide',
     color1: '#F472B6',
     color2: '#DB2777',
@@ -98,7 +98,7 @@ const initialTables = [
     seats: 2,
     status: 'free',
     x: 28,
-    y: 80,
+    y: 75,
     type: 'round',
     color1: '#60A5FA',
     color2: '#2563EB',
@@ -108,8 +108,8 @@ const initialTables = [
     id: 10,
     seats: 4,
     status: 'free',
-    x: 56,
-    y: 79,
+    x: 50,
+    y: 89,
     type: 'square',
     color1: '#FDBA74',
     color2: '#EA580C',
@@ -119,8 +119,8 @@ const initialTables = [
     id: 11,
     seats: 2,
     status: 'free',
-    x: 78,
-    y: 82,
+    x: 65,
+    y: 75,
     type: 'round',
     color1: '#C084FC',
     color2: '#9333EA',
@@ -176,12 +176,10 @@ function App() {
   const [currentTab, setCurrentTab] = useState("main");
   const [tables, setTables] = useState(initialTables);
   
-  // Nowy state dla selekcji dnia i godziny rezerwacji na żywo
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [liveAvailability, setLiveAvailability] = useState(null);
   
-  // Pobranie dostępności stolików na żywo
 const fetchLiveAvailability = async (date, time) => {
   if (!date) return;
   try {
@@ -210,14 +208,12 @@ const fetchLiveAvailability = async (date, time) => {
 
 
   
-  // Ustalanie dzisiejszej daty i pierwszego dostępnego dnia (dzisiaj lub jutro)
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setSelectedDate(today);
     fetchLiveAvailability(today, "10:00");
   }, []);
   
-  // Aktualizacja dostępności gdy zmieni się data lub godzina
   useEffect(() => {
     if (selectedDate) {
       fetchLiveAvailability(selectedDate, selectedTime);
@@ -227,12 +223,16 @@ const fetchLiveAvailability = async (date, time) => {
   const [selectedTable, setSelectedTable] = useState(null);
   const [guestCount, setGuestCount] = useState(2);
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   
 const handleReservation = async () => {
   if (!clientName.trim()) {
     alert("Proszę wpisać imię i nazwisko!");
     return;
   }
+  if (!clientEmail.trim()) { alert("Podaj e-mail!"); return; } 
+  if (!clientPhone.trim()) { alert("Podaj telefon!"); return; } 
   if (!selectedDate) {
     alert("Proszę wybrać dzień rezerwacji w sekcji powyżej!");
     return;
@@ -244,6 +244,8 @@ const handleReservation = async () => {
 
 const payload = {
   klient: clientName,
+  email: clientEmail,
+  telefon: clientPhone,
   stolik_nr: Number(selectedTable.id),
   data_godzina: `${selectedDate} ${selectedTime}`
 };
@@ -335,7 +337,6 @@ const payload = {
         display: "flex",
         flexDirection: "column",
         alignItems: "center", 
-        // GLASSMORPHISM PANEL
         background: "rgba(255, 255, 255, 0.08)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
@@ -431,7 +432,6 @@ CAFE LUMIÈRE
             <aside className="panel">
               <h2>Parametry</h2>
 
-              {/* Sekcja: Wybór dnia i godziny na żywo */}
               <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(192, 132, 252, 0.1)', borderRadius: '8px', border: '1px solid rgba(192, 132, 252, 0.3)' }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Calendar size={16} /> Widok Rezerwacji na Żywo
@@ -522,12 +522,6 @@ CAFE LUMIÈRE
                 </select>
               </label>
 
-              <div className="legend">
-                <div><span className="dot dot--free" /> Wolny</div>
-                <div><span className="dot dot--reserved" /> Zarezerwowany</div>
-                <div><span className="dot dot--busy" /> Zajęty</div>
-              </div>
-
               <AnimatePresence mode="wait">
                 {selectedTable ? (
                   <motion.div
@@ -544,24 +538,36 @@ CAFE LUMIÈRE
                       <span><Users size={17} /> {selectedTable.seats} miejsc</span>
                     </div>
 
-                    <div className="control" style={{ marginBottom: '15px' }}>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                        Imię i nazwisko klienta:
-                      </label>
+                                       <div className="control" style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Imię i nazwisko klienta:</label>
                       <input 
                         type="text" 
                         placeholder="np. Jan Kowalski" 
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          borderRadius: '8px',
-                          border: '1px solid #ccc',
-                          boxSizing: 'border-box',
-                          background: '#fff',
-                          color: '#333'
-                        }}
+                        value={clientName} 
+                        onChange={(e) => setClientName(e.target.value)} 
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #333', background: '#0f0f13', color: '#fff', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+
+                    <div className="control" style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Adres e-mail:</label>
+                      <input 
+                        type="email" 
+                        placeholder="np. jan@wp.pl" 
+                        value={clientEmail} 
+                        onChange={(e) => setClientEmail(e.target.value)} 
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #333', background: '#0f0f13', color: '#fff', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+
+                    <div className="control" style={{ marginBottom: '20px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Numer telefonu (SMS):</label>
+                      <input 
+                        type="tel" 
+                        placeholder="np. +48 500 600 700" 
+                        value={clientPhone} 
+                        onChange={(e) => setClientPhone(e.target.value)} 
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #333', background: '#0f0f13', color: '#fff', boxSizing: 'border-box' }} 
                       />
                     </div>
 
@@ -613,7 +619,7 @@ CAFE LUMIÈRE
               <div className="floor-header">
                 <div>
                   <h2>Plan sali</h2>
-                  <p>Okna, strefa barowa oraz stoliki o różnych kolorach i liczbie miejsc</p>
+                  <p>Okna, strefa barowa oraz rozkład stolików w naszej restauracji</p>
                 </div>
                 <span className="badge">Wybór na żywo</span>
               </div>
@@ -668,7 +674,6 @@ CAFE LUMIÈRE
         boxShadow: "0 10px 35px rgba(0,0,0,0.35)"
       }}
     >
-      {/* LEWA KOLUMNA */}
       <div style={{ color: "#b388ff", fontSize: "1.2rem", lineHeight: "1.7" }}>
         <h1
           style={{
@@ -698,13 +703,11 @@ CAFE LUMIÈRE
 
         <p style={{ marginTop: "25px" }}>
           <strong>Godziny Otwarcia</strong><br/>
-          Pon–Pt: 10:00–22:00<br/>
-          Sobota: 11:00–23:00<br/>
-          Niedziela: 11:00–22:00
+          Pon–Nd: 10:00–22:00<br/>
+          Ostatnie zamówienia przyjmujemy do 21:00
         </p>
       </div>
 
-      {/* PRAWA KOLUMNA */}
       <div
         style={{
           borderRadius: "18px",

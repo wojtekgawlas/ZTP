@@ -20,6 +20,8 @@ class RezerwacjaDB(Base):
     __tablename__ = "rezerwacje"
     id = Column(Integer, primary_key=True, index=True)
     klient = Column(String, index=True)
+    email = Column(String)
+    telefon = Column(String)
     stolik_nr = Column(Integer)
     data_godzina = Column(String)
 
@@ -28,6 +30,8 @@ Base.metadata.create_all(bind=engine)
 from pydantic import BaseModel
 class RezerwacjaCreate(BaseModel):
     klient: str
+    email: str
+    telefon: str
     stolik_nr: int
     data_godzina: str
 
@@ -90,10 +94,8 @@ def create_reservation(rezerwacja: RezerwacjaCreate, db: Session = Depends(get_d
     if minuta % 15 != 0:
         raise HTTPException(status_code=400, detail="Rezerwacja możliwa tylko w blokach co 15 minut!")
 
-    # Sprawdzenie 2-godzinnego okna rezerwacji
     czas_konca_rezerwacji = dt + timedelta(hours=2)
     
-    # Szukamy wszystkich rezerwacji, które mogą kolidować z naszym 2-godzinnym oknem
     rezerwacje_kolidujace = db.query(RezerwacjaDB).filter(
         RezerwacjaDB.stolik_nr == rezerwacja.stolik_nr
     ).all()
@@ -103,7 +105,6 @@ def create_reservation(rezerwacja: RezerwacjaCreate, db: Session = Depends(get_d
             rez_start = datetime.fromisoformat(rez.data_godzina.replace("Z", ""))
             rez_koniec = rez_start + timedelta(hours=2)
             
-            # Sprawdzamy czy nowa rezerwacja zachodzi na istniejącą
             if not (czas_konca_rezerwacji <= rez_start or dt >= rez_koniec):
                 wyslij_log_do_seq("Warning", "Odrzucono rezerwację - stolik zajęty", {"stolik_nr": rezerwacja.stolik_nr, "data": rezerwacja.data_godzina})
                 raise HTTPException(status_code=400, detail="Ten stolik jest już zajęty w wybranym przedziale czasowym!")
@@ -114,6 +115,8 @@ def create_reservation(rezerwacja: RezerwacjaCreate, db: Session = Depends(get_d
 
     nowa_rezerwacja = RezerwacjaDB(
         klient=rezerwacja.klient,
+        email=rezerwacja.email,
+        telefon=rezerwacja.telefon,
         stolik_nr=rezerwacja.stolik_nr,
         data_godzina=rezerwacja.data_godzina
     )
@@ -131,6 +134,8 @@ def create_reservation(rezerwacja: RezerwacjaCreate, db: Session = Depends(get_d
     payload_szyny = {
         "id_rezerwacji": nowa_rezerwacja.id,
         "klient": nowa_rezerwacja.klient,
+        "email": nowa_rezerwacja.email,
+        "telefon": nowa_rezerwacja.telefon,
         "stolik_nr": nowa_rezerwacja.stolik_nr,
         "data_godzina": nowa_rezerwacja.data_godzina
     }
@@ -141,25 +146,15 @@ def create_reservation(rezerwacja: RezerwacjaCreate, db: Session = Depends(get_d
 
 @app.get("/dostepnosc-stolikow/")
 def dostepnosc_stolikow(data: str, godzina: str = "10:00", db: Session = Depends(get_db)):
-    """
-    Zwraca dostępność stolików dla konkretnej daty i godziny.
-    Bierze pod uwagę 2-godzinne okno rezerwacji.
-    
-    Parametry:
-    - data: format YYYY-MM-DD
-    - godzina: format HH:MM (domyślnie 10:00)
-    """
+
     try:
-        # Parsowanie daty i godziny
         dt = datetime.fromisoformat(f"{data}T{godzina}:00")
         czas_konca = dt + timedelta(hours=2)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Niepoprawny format daty lub godziny: {str(e)}")
     
-    # Pobranie wszystkich rezerwacji na daną datę
     rezerwacje = db.query(RezerwacjaDB).all()
     
-    # Domyślnie wszystkie stoliki (1-11) są wolne
     stolik_ids = list(range(1, 12))
     zajete_stoliki = set()
     
@@ -167,14 +162,12 @@ def dostepnosc_stolikow(data: str, godzina: str = "10:00", db: Session = Depends
         try:
             rez_start = datetime.fromisoformat(rez.data_godzina.replace("Z", ""))
             rez_koniec = rez_start + timedelta(hours=2)
-            
-            # Sprawdzamy czy rezerwacja koliduje z naszym przedziałem czasowym
+
             if not (czas_konca <= rez_start or dt >= rez_koniec):
                 zajete_stoliki.add(rez.stolik_nr)
         except Exception:
             continue
     
-    # Zwracamy listę stolików z ich statusami
     dostepnosc = {
         "data": data,
         "godzina": godzina,
